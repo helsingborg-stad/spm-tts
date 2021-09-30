@@ -20,7 +20,7 @@ let package = Package(
     targets: [
         .target(
             name: "TTS",
-            dependencies: ["AudioSwitchboard"]),
+            dependencies: ["AudioSwitchboard","FFTPublisher"]),
         .testTarget(
             name: "TTSTests",
             dependencies: ["TTS"])
