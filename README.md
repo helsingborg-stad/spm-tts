@@ -27,12 +27,12 @@ class MyState {
     func play(string:String) -> TTSUtterance {
         let u = TTSUtterance(string, locale: Locale(identifier:"en-US"))
         u.statusPublisher.sink { status in
-        /// you can use the status to toggle a button between play, pause or stop 
-        debugPrint(status)
+            // you can use the status to toggle a button between play, pause or stop 
+            debugPrint(status)
         }.store(in: &cancellables)
         u.wordBoundaryPublisher.sink { boundary in
-            /// use this if you want to display the currently spoken word, 
-            /// either by its own or perhaps using an atributed string
+            // use this if you want to display the currently spoken word, 
+            // either by its own or perhaps using an atributed string
             debugPrint(boundary.string)
         }.store(in: &cancellables)
 
