@@ -51,7 +51,7 @@ struct ContentView: View {
     var body: some View {
         HStack {
             Circle().fill(color).frame(width: 20,height:20)
-            Text(string)    
+            Text(utterance.speechString)    
         }
         .onRecieve(utterance.statusPublisher) { status in 
             if status == .failed {
