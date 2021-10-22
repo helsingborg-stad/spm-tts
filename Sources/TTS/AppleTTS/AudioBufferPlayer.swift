@@ -16,32 +16,53 @@ struct AudioPlayerItem {
     var status: AudioPlayerStatus
     var error: Error?
 }
-// https://stackoverflow.com/questions/56999334/boost-increase-volume-of-text-to-speech-avspeechutterance-to-make-it-louder
+
+/// Audioplayer based on the AVAudioEngine
 class AudioBufferPlayer: ObservableObject {
+    /// AudioBufferPlayer Errors
     enum AudioBufferPlayerError: Error {
+        /// Triggered when audio input format cannot be determined
         case unableToInitlializeInputFormat
+        /// Triggered when audio output format cannot be determined
         case unableToInitlializeOutputFormat
+        /// Triggered if the audio converter cannot be configured (probaby due to unsupported formats)
         case unableToInitlializeAudioConverter
+        /// Trigggered when the buffer format cannot be  determined
         case unableToInitlializeBufferFormat
-        case unknownBufferType
+        //case unknownBufferType
     }
+    /// Instance used to produce and publish meter values
     weak var fft: FFTPublisher?
-    let statusSubject: PassthroughSubject<AudioPlayerItem, Never> = .init()
+    /// Used to send player status updates
+    private let statusSubject: PassthroughSubject<AudioPlayerItem, Never> = .init()
+    /// Status update publisher
     let status: AnyPublisher<AudioPlayerItem, Never>
+    /// Used to publish playback time of the audio file.
     let playbackTime: PassthroughSubject<Float, Never> = .init()
+    /// The output format used in the AVAudioEngine
     private let outputFormat = AVAudioFormat(commonFormat: AVAudioCommonFormat.pcmFormatFloat32, sampleRate: 22050, channels: 1, interleaved: false)
-    private var cancellable:AnyCancellable?
+    /// Used to subscribe to the AudioSwitchboard claim publisher
+    private var switchboardCancellable:AnyCancellable?
+    /// Indicates whether or not the current utterance is playing
     private(set) var isPlaying: Bool = false
+    /// The current audio converter
     private var converter: AVAudioConverter!
+    /// Switchboard used to claim the audio channels
     private let audioSwitchboard:AudioSwitchboard
+    /// The player used to play audio
     private let player: AVAudioPlayerNode = AVAudioPlayerNode()
+    /// The audio buffer size. 512 is not officially supported by Apple but it works anyway. It's set to 512 to speed up FFT calculations and reduce lag.
     private let bufferSize: UInt32 = 512
+    /// Number of buffers left in the queue
     private var bufferCounter: Int = 0
+    /// Id of the currently playing audio
     private var currentlyPlaying: String? = nil {
         didSet {
             isPlaying = currentlyPlaying != nil
         }
     }
+    /// Initializes a AudioBufferPlayer
+    /// - Parameter audioSwitchboard: Switchboard used to claim the audio channels
     init(_ audioSwitchboard:AudioSwitchboard) {
         self.audioSwitchboard = audioSwitchboard
         self.status = statusSubject.receive(on: DispatchQueue.main).eraseToAnyPublisher()
@@ -62,6 +83,10 @@ class AudioBufferPlayer: ObservableObject {
             }
         }
     }
+    /// Prepare AVAudioBuffer for AVAudioPlayerNode
+    /// - Parameters:
+    ///   - buffer: the buffer to prepare
+    ///   - id: the id of the item to play
     private func prepare(buffer: AVAudioBuffer, id: String) {
         guard player.isPlaying else {
             return
@@ -90,6 +115,8 @@ class AudioBufferPlayer: ObservableObject {
             }
         }
     }
+    /// Publishes the current position of the player based on rate
+    /// - Parameter rate: the rate of the audio
     private func postCurrentPosition(for rate: Float) {
         guard self.player.isPlaying else {
             return
@@ -99,6 +126,10 @@ class AudioBufferPlayer: ObservableObject {
             self.playbackTime.send(elapsedSeconds)
         }
     }
+    /// Initialize a new AVAudioConverter
+    /// - Parameters:
+    ///   - id: the id of the item to play
+    ///   - buffer: the buffer used for conversion
     private func initializeConverter(id: String,buffer: AVAudioBuffer) {
         guard converter == nil else {
             return
@@ -113,6 +144,7 @@ class AudioBufferPlayer: ObservableObject {
         }
         converter = c
     }
+    /// Continue playing a paused item
     func `continue`() {
         guard currentlyPlaying != nil else {
             return
@@ -121,6 +153,7 @@ class AudioBufferPlayer: ObservableObject {
             player.play()
         }
     }
+    /// Pauses the currently playing item
     func pause() {
         guard currentlyPlaying != nil else {
             return
@@ -129,6 +162,7 @@ class AudioBufferPlayer: ObservableObject {
             player.pause()
         }
     }
+    /// Stops the currently playing item
     func stop() {
         if let currentlyPlaying = currentlyPlaying {
             statusSubject.send(AudioPlayerItem(id: currentlyPlaying, status: .cancelled))
@@ -140,6 +174,10 @@ class AudioBufferPlayer: ObservableObject {
         currentlyPlaying = nil
         self.fft?.end()
     }
+    /// Play an audiobuffer
+    /// - Parameters:
+    ///   - id: the id of the item to be played
+    ///   - buffer: the buffer to be played
     func play(id: String, buffer: AVAudioBuffer) {
         guard let outputFormat = outputFormat else {
             stop()
@@ -150,8 +188,8 @@ class AudioBufferPlayer: ObservableObject {
             prepare(buffer: buffer, id: id)
             return
         }
-        cancellable?.cancel()
-        cancellable = audioSwitchboard.claim(owner: "AppleTTS").sink { [weak self] in
+        switchboardCancellable?.cancel()
+        switchboardCancellable = audioSwitchboard.claim(owner: "AppleTTS").sink { [weak self] in
             self?.stop()
         }
         let audioEngine = audioSwitchboard.audioEngine

@@ -2,39 +2,72 @@ import Combine
 import Foundation
 import SwiftUI
 
+/// A publisher used to publish word boundary events
 public typealias TTSWordBoundaryPublisher = AnyPublisher<TTSWordBoundary, Never>
+/// A publisher used to publish status events
 public typealias TTSStatusPublisher = AnyPublisher<TTSUtterance, Never>
+/// A void publisher used to publish various events
 public typealias TTSMiscPublisher = AnyPublisher<Void, Never>
+/// A publisher used to publish TTSFailures
 public typealias TTSFailedPublisher = AnyPublisher<TTSFailure, Never>
-
+/// A void publisher used to publish failures
 public typealias TTSWordBoundarySubject = PassthroughSubject<TTSWordBoundary, Never>
+/// A subject used to publish status events
 public typealias TTSStatusSubject = PassthroughSubject<TTSUtterance, Never>
+/// A subject used to publish various events
 public typealias TTSMiscSubject = PassthroughSubject<Void, Never>
+/// A subject used to publish failures
 public typealias TTSFailedSubject = PassthroughSubject<TTSFailure, Never>
 
+/// Enum describing voice genders
 public enum TTSGender: String, Codable, CaseIterable, Identifiable {
     public var id: String {
         return rawValue
     }
+    /// female gender
     case female
+    /// male gender
     case male
+    /// other, unspecified gender
     case other
 }
+/// TTS error
 public enum TTSError: Error {
+    /// utterance not found error
     case utteranceNotFound
+    /// missing tts service error
     case missingTTSService
 }
+/// Object used for a TTSUtterance. The object is passed to a TTSService that in turn uses the information to find the best available voice.
 public struct TTSVoice {
+    /// An id that can be used by a TTSService to determine which voice to choose
     public var id: String = "default"
+    /// A name that can be used by a TTSService to determine which voice to choose
     public var name: String = "default"
+    /// The gender of the voice
     public var gender: TTSGender = .other
+    /// Adjust the pitch of the voice
     public var pitch: Double? = nil
+    /// Adjust the pitch of the utterance
     public var rate: Double? = nil
+    /// The locale to be used to decide which language to use for the utterance.
     public var locale: Locale
+    /// Initializes a new voice
+    /// - Parameters:
+    ///   - gender: the gender of the voice
+    ///   - locale: The locale to be used to decide which language to use for the utterance.
     public init(gender: TTSGender, locale: Locale) {
         self.gender = gender
         self.locale = locale
     }
+    /// Initializes a new voice
+    /// - Parameters:
+    ///   - id: An id that can be used by a TTSService to determine which voice to choose
+    ///   - name: A name that can be used by a TTSService to determine which voice to choose
+    ///   - gender: The gender of the voice
+    ///   - rate: Adjust the pitch of the voice
+    ///   - pitch: Adjust the pitch of the utterance
+    ///   - locale: The locale to be used to decide which language to use for the utterance.
     public init(id: String = "default", name: String = "default", gender: TTSGender = .other, rate:Double? = nil, pitch:Double? = nil, locale: Locale) {
         self.id = id
         self.name = name
@@ -44,67 +77,130 @@ public struct TTSVoice {
         self.pitch = pitch
     }
 }
+/// A failure object used by the TTS to publish utterance failures
 public struct TTSFailure {
+    /// Utterance failed
     public var utterance: TTSUtterance
+    /// Error occured
     public var error: Error
+    /// Initializes a new TTSFailure object
+    /// - Parameters:
+    ///   - utterance: Utterance failed
+    ///   - error: Error occured
     public init(utterance: TTSUtterance, error: Error) {
         self.utterance = utterance
         self.error = error
     }
 }
+/// Object used to indicate TTSUtterance word boundary.
 public struct TTSWordBoundary {
+    /// Utterance used for word boundary
     public let utterance: TTSUtterance
+    /// Word boundary information
     public let wordBoundary: TTSUtteranceWordBoundary
+    /// Initializes a new `TTSWordBoundary` object
+    /// - Parameters:
+    ///   - utterance: Utterance used for word boundary
+    ///   - wordBoundary: Word boundary information
     public init(utterance: TTSUtterance, wordBoundary: TTSUtteranceWordBoundary) {
         self.utterance = utterance
         self.wordBoundary = wordBoundary
     }
 }
+/// Holds information about a TTSUtterance word woundary
 public struct TTSUtteranceWordBoundary {
+    /// The string or word being uttered
     public let string: String
+    /// The range in the original string
     public let range: Range<String.Index>
+    /// Initializes a new wordoundary object
+    /// - Parameters:
+    ///   - string: The string or word being uttered
+    ///   - range: The range in the original string
     public init(string: String, range: Range<String.Index>) {
         self.string = string
         self.range = range
     }
 }
+/// Describes the status of a TTSUtterance
 public enum TTSUtteranceStatus: String, Equatable {
+    /// No latest status
     case none
+    /// Utterance queued by `TTS`
     case queued
+    /// Utterance being prepared by the `TTSService`
     case preparing
+    /// Utterance paused
     case paused
+    /// Utterance completed playing
     case finished
+    /// Utterance being spoken
     case speaking
+    /// Uttearnce was cancelled at some point
     case cancelled
+    /// Utterance failed playback
+    case failed
 }
+/// Alias used as the identifying type of the TTSService
 public typealias TTSServiceIdentifier = String
+
+/// The TTSService protocol used by TTS providers
 public protocol TTSService : AnyObject {
+    /// The id of the TTS service provider
     var id:TTSServiceIdentifier { get }
+    /// Indicated whether or not the service is available
     var available:Bool { get }
+    /// Should be triggered when an utterance has been cancelled by the service
     var cancelledPublisher: TTSStatusPublisher { get }
+    /// Should be triggered when the service has finsihed playing an utterance
     var finishedPublisher: TTSStatusPublisher { get }
+    /// Should be triggered when the service has started playing an utterance
     var startedPublisher: TTSStatusPublisher { get }
+    /// Should be triggered when the service is speaking an utterance
     var speakingWordPublisher: TTSWordBoundaryPublisher { get }
+    /// Should be triggered when the service failed to play an utterance
     var failurePublisher: TTSFailedPublisher { get }
+    /// Used to pause an utterance
     func pause()
+    /// Used to continue a currently paused utterance
     func `continue`()
+    /// Used to stop a currently playing utterance
     func stop()
+    /// Used to start playing an utterance
     func start(utterance: TTSUtterance)
 }
+/// Object describing an utterance to be played.
 public struct TTSUtterance: Identifiable, Equatable {
+    /// Equality check checking the id of the instance only
+    /// - Returns: true if equal, false if not
     public static func == (lhs: TTSUtterance, rhs: TTSUtterance) -> Bool {
         lhs.id == rhs.id
     }
+    /// Subject used to publish the status of an utterance
     internal var statusSubject = CurrentValueSubject<TTSUtteranceStatus,Never>(.none)
+    /// Subject used to publish the words being spken in an utterance
     internal var wordBoundarySubject = PassthroughSubject<TTSUtteranceWordBoundary,Never>()
+    /// Subject used when the utterance failes
     internal var failureSubject = PassthroughSubject<Error,Never>()
+    /// The id (UUID) of the utterance
     public let id = UUID().uuidString
+    /// Utterance tag, can be used to identify an utterance.
     public let tag:String?
+    /// The string to be uttered
     public let speechString: String
+    /// The voice properties being used bu the TTSService to determine what voice to use for the utterance
     public let voice: TTSVoice
+    /// Publishes utterance status events
     public var statusPublisher:AnyPublisher<TTSUtteranceStatus,Never>
+    /// Publishes words being spoken
     public var wordBoundaryPublisher:AnyPublisher<TTSUtteranceWordBoundary,Never>
+    /// Publsihes failures
     public var failurePublisher:AnyPublisher<Error,Never>
+    /// Initializes a new TTSUtterance
+    /// - Parameters:
+    ///   - speechString: The string to be uttered
+    ///   - voice: The voice properties being used bu the TTSService to determine what voice to use for the utterance
+    ///   - tag: Utterance tag, can be used to identify an utterance.
     public init(_ speechString: String, voice: TTSVoice,tag:String? = nil) {
         self.speechString = speechString
         self.voice = voice
@@ -113,11 +209,14 @@ public struct TTSUtterance: Identifiable, Equatable {
         self.wordBoundaryPublisher = wordBoundarySubject.eraseToAnyPublisher()
         self.failurePublisher = failureSubject.eraseToAnyPublisher()
     }
-    func updateStatus(_ status:TTSUtteranceStatus) {
-        if statusSubject.value != status {
-            statusSubject.send(status)
-        }
-    }
+    /// Initializes a new TTSUtterance
+    /// - Parameters:
+    ///   - speechString: The string to be uttered
+    ///   - gender: The gender of the voice
+    ///   - locale: The locale to be used to decide which language to use for the utterance.
+    ///   - rate: Adjust the pitch of the voice
+    ///   - pitch: Adjust the pitch of the utterance
+    ///   - tag: Utterance tag, can be used to identify an utterance.
     public init(_ speechString: String, gender: TTSGender = .female, locale: Locale = .current, rate:Double? = nil, pitch:Double? = nil, tag:String? = nil) {
         self.speechString = speechString
         self.tag = tag
@@ -126,11 +225,19 @@ public struct TTSUtterance: Identifiable, Equatable {
         self.wordBoundaryPublisher = wordBoundarySubject.eraseToAnyPublisher()
         self.failurePublisher = failureSubject.eraseToAnyPublisher()
     }
-    
+    /// Update the status of the utterance
+    /// - Parameter status: status to publish
+    func updateStatus(_ status:TTSUtteranceStatus) {
+        if statusSubject.value != status {
+            statusSubject.send(status)
+        }
+    }
 }
 
+/// TTS provides a common interface for Text To Speech services implementing the `TTSService` protocol.
+/// It also manages the TTSUtterance status, something that typically is not implemented by `TTSService`
 public class TTS: ObservableObject {
-    private var queue: [TTSUtterance] = []
+    
     @Published public private(set) var isSpeaking: Bool = false
     @Published public private(set) var currentlySpeaking: TTSUtterance?
     @Published public var disabled: Bool = false {
@@ -141,8 +248,10 @@ public class TTS: ObservableObject {
         }
     }
     
-    
-    private var publishers = Set<AnyCancellable>()
+    /// The play queue
+    private var queue: [TTSUtterance] = []
+    /// Cancellable store
+    private var cancellables = Set<AnyCancellable>()
     
     private let queuedSubject: TTSStatusSubject = .init()
     private let preparingSubject: TTSStatusSubject = .init()
@@ -154,20 +263,31 @@ public class TTS: ObservableObject {
     private let failedSubject: TTSFailedSubject = .init()
     private let speakingWordSubject: TTSWordBoundarySubject = .init()
     
+    /// Triggered when a new utterance is added to the queue
     public var queued: TTSStatusPublisher  { return queuedSubject.eraseToAnyPublisher()}
+    /// Triggered when an utterance is being prepared for playback
     public var preparing: TTSStatusPublisher  { return preparingSubject.eraseToAnyPublisher()}
+    /// Triggered when an utterance is being spoken
     public var speaking: TTSStatusPublisher  { return speakingSubject.eraseToAnyPublisher()}
+    /// Triggered when an utterance is paused
     public var paused: TTSStatusPublisher  { return pausedSubject.eraseToAnyPublisher()}
+    /// Triggered when an utterance is cancelled
     public var cancelled: TTSStatusPublisher  { return cancelledSubject.eraseToAnyPublisher()}
+    /// Triggered when an utterance is finished
     public var finished: TTSStatusPublisher  { return finishedSubject.eraseToAnyPublisher()}
+    /// Triggered when the queue is empty after playback
     public var finishedQueue: TTSMiscPublisher  { return finishedQueueSubject.eraseToAnyPublisher()}
+    /// Triggered when the a failure/error occurs
     public var failed: TTSFailedPublisher  { return failedSubject.eraseToAnyPublisher()}
+    /// Triggered when the a word is being spoken
     public var speakingWord: TTSWordBoundaryPublisher  { return speakingWordSubject.eraseToAnyPublisher()}
-    
+    /// The currenly used service, reset occurs when queueing an item
     private var currentService:TTSService? = nil
+    /// The currently selected service
     private var selectedService:TTSService?
+    /// Holds a list of services added to TTS.
     private var services = [TTSService]()
-    
+    /// Returns the "best" service, or really just the first available service.
     private var bestAvailableService:TTSService? {
         guard let service = selectedService, service.available == true else {
             return services.first(where: { $0.available })
@@ -175,9 +295,12 @@ public class TTS: ObservableObject {
         return selectedService
     }
     
+    /// Dequeue an utterance, ie removed it from the queue
+    /// - Parameter utterance: the utterance to remove
     private func dequeue(_ utterance: TTSUtterance) {
         queue.removeAll { $0.id == utterance.id }
     }
+    /// Run the queue by selcting the top utterance and playing it
     private func runQueue() {
         if isSpeaking {
             return
@@ -199,12 +322,14 @@ public class TTS: ObservableObject {
         utterance.updateStatus(.preparing)
         service.start(utterance: utterance)
     }
+    /// Used to reset instance variables related to a currently playing utterance
     private func notSpeaking() {
         currentService = nil
         currentlySpeaking = nil
         isSpeaking = false
     }
-    
+    /// Used when cancelling an utterance
+    /// - Parameter utterance: the utterance to cancel
     private func cancelled(_ utterance:TTSUtterance) {
         cancelledSubject.send(utterance)
         utterance.updateStatus(.cancelled)
@@ -214,13 +339,18 @@ public class TTS: ObservableObject {
             runQueue()
         }
     }
+    /// Used to trigger failure events
+    /// - Parameter utterance: the failure to publish
     private func failed(_ failure:TTSFailure) {
         failedSubject.send(failure)
+        failure.utterance.updateStatus(.failed)
         failure.utterance.failureSubject.send(failure.error)
         dequeue(failure.utterance)
         notSpeaking()
         runQueue()
     }
+    /// Used when finishing an utterance
+    /// - Parameter utterance: the utterance that finished
     private func finished(_ utterance:TTSUtterance) {
         finishedSubject.send(utterance)
         utterance.updateStatus(.finished)
@@ -228,49 +358,63 @@ public class TTS: ObservableObject {
         notSpeaking()
         runQueue()
     }
+    /// Used when finishing an utterance
+    /// - Parameter utterance: the utterance that's started
     private func started(_ utterance:TTSUtterance) {
         speakingSubject.send(utterance)
         utterance.updateStatus(.speaking)
     }
+    /// Used to trigger events related to utterance word boundary
+    /// - Parameter wordBoundary: <#wordBoundary description#>
     private func speakingWord(_ wordBoundary:TTSWordBoundary) {
         speakingWordSubject.send(wordBoundary)
         wordBoundary.utterance.wordBoundarySubject.send(wordBoundary.wordBoundary)
     }
     
+    /// Initializes a new TTS instance
+    /// - Parameter services: possible services
     public init(_ services:TTSService...) {
         services.forEach { s in
             self.add(service: s)
         }
         self.selectedService = services.first(where: { $0.available })
     }
+    /// Initializes a new TTS instance
+    /// - Parameter services: possible services
     public init(_ services:[TTSService]) {
         services.forEach { s in
             self.add(service: s)
         }
         self.selectedService = services.first(where: { $0.available })
     }
-
+    
+    /// Add a service to the list of possible services to use
+    /// - Parameters:
+    ///   - service: the service to add
+    ///   - select: select when added
     public func add(service:TTSService, select:Bool = false) {
         self.services.append(service)
         service.cancelledPublisher.receive(on: DispatchQueue.main).sink { [weak self] u in
             self?.cancelled(u)
-        }.store(in: &publishers)
+        }.store(in: &cancellables)
         service.finishedPublisher.receive(on: DispatchQueue.main).sink { [weak self] u in
             self?.finished(u)
-        }.store(in: &publishers)
+        }.store(in: &cancellables)
         service.startedPublisher.receive(on: DispatchQueue.main).sink { [weak self] u in
             self?.started(u)
-        }.store(in: &publishers)
+        }.store(in: &cancellables)
         service.speakingWordPublisher.receive(on: DispatchQueue.main).sink { [weak self] w in
             self?.speakingWord(w)
-        }.store(in: &publishers)
+        }.store(in: &cancellables)
         service.failurePublisher.receive(on: DispatchQueue.main).sink { [weak self] f in
             self?.failed(f)
-        }.store(in: &publishers)
+        }.store(in: &cancellables)
         if select {
             self.select(service: service)
         }
     }
+    /// Remove a service from the list of possible services
+    /// - Parameter service: the service to remove
     public func remove(service:TTSService) {
         if let index = services.firstIndex(where: { $0.id == service.id }) {
             self.services.remove(at: index)
@@ -279,6 +423,8 @@ public class TTS: ObservableObject {
             }
         }
     }
+    /// Remove a service from the list of possible services
+    /// - Parameter identifier: remove using identifier
     public func remove(service identifier:TTSServiceIdentifier) {
         if let index = services.firstIndex(where: { $0.id == identifier }) {
             self.services.remove(at: index)
@@ -287,6 +433,8 @@ public class TTS: ObservableObject {
             }
         }
     }
+    /// Selects a service
+    /// - Parameter service: the service to select
     public func select(service:TTSService) {
         if let s = services.first(where: { $0.id == service.id }) {
             self.selectedService = s
@@ -299,6 +447,8 @@ public class TTS: ObservableObject {
             }
         }
     }
+    /// Seleect service by the service id
+    /// - Parameter identifier: the id of the service
     public func select(service identifier:TTSServiceIdentifier) {
         if let s = services.first(where: { $0.id == identifier }) {
             if s.available {
@@ -310,6 +460,8 @@ public class TTS: ObservableObject {
             debugPrint("no such service")
         }
     }
+    /// Queue a list of utterances for playback
+    /// - Parameter utterances: utterances to queue
     public final func queue(_ utterances: [TTSUtterance]) {
         if disabled {
             return
@@ -318,6 +470,8 @@ public class TTS: ObservableObject {
             queue(utterance)
         }
     }
+    /// Queue a utterance for playback
+    /// - Parameter utterance: utterance to queue
     public final func queue(_ utterance: TTSUtterance) {
         if disabled {
             return
@@ -327,14 +481,19 @@ public class TTS: ObservableObject {
         utterance.updateStatus(.queued)
         runQueue()
     }
+    /// Play a list if utterances and immediately cancel all queued utterances, including the currently played utterance
+    /// - Parameter utterances: utterance to play
     public final func play(_ utterances: [TTSUtterance]) {
         cancelAll()
         queue(utterances)
     }
+    /// Play a utterance and immediately cancel all queued utterances, including the currently played utterance
+    /// - Parameter utterance: utterance to play
     public final func play(_ utterance: TTSUtterance) {
         cancelAll()
         queue(utterance)
     }
+    /// Cancells all utterances in the queue, including the currently played utterance
     public final func cancelAll() {
         queue.forEach { u in
             cancelledSubject.send(u)
@@ -344,6 +503,8 @@ public class TTS: ObservableObject {
         currentService?.stop()
         notSpeaking()
     }
+    /// Cancels a specific utterance and continue playing the queue (if not empty)
+    /// - Parameter utterance: utterance to cancel
     public final func cancel(_ utterance: TTSUtterance) {
         if utterance.id == currentlySpeaking?.id {
             currentService?.stop()
@@ -351,6 +512,7 @@ public class TTS: ObservableObject {
             dequeue(utterance)
         }
     }
+    /// Pause the currently palyed utterance
     public final func pause() {
         guard let u = currentlySpeaking else {
             return
@@ -359,6 +521,7 @@ public class TTS: ObservableObject {
         pausedSubject.send(u)
         u.updateStatus(.paused)
     }
+    /// Pause the currently paused utterance
     public final func `continue`() {
         guard let u = currentlySpeaking else {
             return
@@ -366,12 +529,5 @@ public class TTS: ObservableObject {
         currentService?.continue()
         speakingSubject.send(u)
         u.updateStatus(.speaking)
-    }
-}
-extension Collection {
-
-    /// Returns the element at the specified index if it is within bounds, otherwise nil.
-    subscript (safe index: Index) -> Bool {
-        return (indices.contains(index) ? self[index] : nil) != nil
     }
 }

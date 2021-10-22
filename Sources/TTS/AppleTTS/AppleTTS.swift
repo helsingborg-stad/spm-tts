@@ -4,38 +4,63 @@ import Combine
 import FFTPublisher
 import AudioSwitchboard
 
+/// AppleTTS errors
 public enum AppleTTSError : Error {
+    /// If service unavailable
     case unavailable
+    /// If the language is unsupported
+    case missingVoiceForLocale
 }
 
+/// AppleTTS is a implementation of AVSpeechSynthesizer adapted to the TTSService protocol
+/// - Note: AppleTTS does not manage the `TTSUtterance` status, use `TTS` to get status updates
 public class AppleTTS: NSObject, TTSService, AVSpeechSynthesizerDelegate, ObservableObject {
-    struct Current {
-        let native:AVSpeechUtterance
-        let custom:TTSUtterance
-    }
+    /// The id or name of of the service
     public let id: TTSServiceIdentifier = "AppleTTS"
+    /// Used when an utterance is cancelled
     private let cancelledSubject: TTSStatusSubject = .init()
+    /// Used when an utterance is finsihed
     private let finishedSubject: TTSStatusSubject = .init()
+    /// Used when an utterance is started
     private let startedSubject: TTSStatusSubject = .init()
+    /// Used when the a word boundary is hit
     private let speakingWordSubject: TTSWordBoundarySubject = .init()
+    /// Used upon failure
     private let failureSubject: TTSFailedSubject = .init()
     
+    /// The sythensier
     private var synthesizer = AVSpeechSynthesizer()
+    /// Used for the subscription to AudioBufferPlayer
     private var playerPublisher: AnyCancellable?
+    /// Local db keeping track of utterances.
     private var db = [AVSpeechUtterance: TTSUtterance]()
+    /// Audio player used to play utterances
     private var audioPlayer:AudioBufferPlayer
+    /// Used for storeing cancellables
     private var cancellables = Set<AnyCancellable>()
+    
+    /// Triggers when an utterance is cancelled
     public var cancelledPublisher: TTSStatusPublisher  { cancelledSubject.eraseToAnyPublisher() }
+    /// Triggers when an utterance is finsihed
     public var finishedPublisher: TTSStatusPublisher { finishedSubject.eraseToAnyPublisher() }
+    /// Triggers when an utterance is started
     public var startedPublisher: TTSStatusPublisher { startedSubject.eraseToAnyPublisher() }
+    /// Triggers when the a word boundary is hit
     public var speakingWordPublisher: TTSWordBoundaryPublisher { speakingWordSubject.eraseToAnyPublisher() }
+    /// Triggers upon failure
     public var failurePublisher: TTSFailedPublisher { failureSubject.eraseToAnyPublisher() }
+    /// Indicates whether or not the service is available
     public private(set) var available:Bool = true
+    /// Used to publish FFT data from the AudioBufferPlayer
     public weak var fft: FFTPublisher? {
         didSet {
             audioPlayer.fft = fft
         }
     }
+    /// Initializes a new AppleTTS instance
+    /// - Parameters:
+    ///   - audioSwitchBoard: Ssed to manage audio usage
+    ///   - fft: Used to publish FFT data from the AudioBufferPlayer
     public init(audioSwitchBoard:AudioSwitchboard, fft: FFTPublisher? = nil) {
         audioPlayer = AudioBufferPlayer(audioSwitchBoard)
         synthesizer = AVSpeechSynthesizer()
@@ -85,18 +110,23 @@ public class AppleTTS: NSObject, TTSService, AVSpeechSynthesizerDelegate, Observ
             }
         }
     }
+    /// Pause the utterance
     public func pause() {
         synthesizer.pauseSpeaking(at: .immediate)
         audioPlayer.pause()
     }
+    /// Continue playing the utterance
     public func `continue`() {
         synthesizer.continueSpeaking()
         audioPlayer.continue()
     }
+    /// Stop utterance
     public func stop() {
         synthesizer.stopSpeaking(at: .immediate)
         audioPlayer.stop()
     }
+    /// Start utterance
+    /// - Parameter utterance: the utterance to play
     public func start(utterance: TTSUtterance) {
         if !available {
             failureSubject.send(.init(utterance: utterance, error: AppleTTSError.unavailable))
@@ -105,8 +135,12 @@ public class AppleTTS: NSObject, TTSService, AVSpeechSynthesizerDelegate, Observ
         if synthesizer.isSpeaking {
             stop()
         }
+        guard let v = bestVoice(for: utterance.voice) else {
+            failureSubject.send(.init(utterance: utterance, error: AppleTTSError.missingVoiceForLocale))
+            return
+        }
         let u = AVSpeechUtterance(string: utterance.speechString)
-        u.voice = bestVoice(for: utterance.voice)
+        u.voice = v
         u.volume = 1
         if let r = utterance.voice.rate {
             
@@ -123,7 +157,13 @@ public class AppleTTS: NSObject, TTSService, AVSpeechSynthesizerDelegate, Observ
             }
         }
     }
+    /// Finds the best voice available for the utternace based on the properties of `TTSVoice`. Best avilable means quality enhanced first.
+    /// - Parameter voice: used to find the best available voice
+    /// - Returns: best avilable `AVSpeechSynthesisVoice`
     private func bestVoice(for voice: TTSVoice) -> AVSpeechSynthesisVoice? {
+        guard Self.hasSupportFor(locale: voice.locale) else {
+            return nil
+        }
         let lang = voice.locale.identifier.replacingOccurrences(of: "_", with: "-")
         var voices = AVSpeechSynthesisVoice.speechVoices().filter { v in v.language == lang }
         voices.sort { (v1, _) in v1.quality == .enhanced }
@@ -138,7 +178,13 @@ public class AppleTTS: NSObject, TTSService, AVSpeechSynthesizerDelegate, Observ
         }
         return firstVoice(for: voice)
     }
+    /// Finds the first voice available for the utternace based on the properties of `TTSVoice`
+    /// - Parameter voice: used to find the first available voice
+    /// - Returns: first avilable `AVSpeechSynthesisVoice`
     private func firstVoice(for voice: TTSVoice) -> AVSpeechSynthesisVoice? {
+        guard Self.hasSupportFor(locale: voice.locale) else {
+            return nil
+        }
         let lang = voice.locale.languageCode ?? voice.locale.identifier.replacingOccurrences(of: "_", with: "-")
         let voices = AVSpeechSynthesisVoice.speechVoices().filter { v in v.language.prefix(2) == lang }
         for v in voices {
@@ -155,6 +201,11 @@ public class AppleTTS: NSObject, TTSService, AVSpeechSynthesizerDelegate, Observ
         }
         return AVSpeechSynthesisVoice(identifier: lang)
     }
+    /// Implementation from AVSpeechSynthesizerDelegate. When called the instance will report word boundary to the speakingWord publisher
+    /// - Parameters:
+    ///   - synthesizer: sythensizer used
+    ///   - characterRange: range of characters
+    ///   - utterance: the utterance
     public final func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, willSpeakRangeOfSpeechString characterRange: NSRange, utterance: AVSpeechUtterance) {
         guard let u = db[utterance] else {
             return
@@ -164,5 +215,12 @@ public class AppleTTS: NSObject, TTSService, AVSpeechSynthesizerDelegate, Observ
         }
         let word = String(u.speechString[range])
         speakingWordSubject.send(TTSWordBoundary(utterance: u, wordBoundary: TTSUtteranceWordBoundary(string: word, range: range)))
+    }
+    /// Returns whether or not AVSpeechSynthesis supports the given locale
+    /// - Parameter locale: the locale to compare with
+    /// - Returns: true if available false if not
+    public static func hasSupportFor(locale:Locale) -> Bool {
+        let identifier = locale.identifier.replacingOccurrences(of: "_", with: "-")
+        return AVSpeechSynthesisVoice.speechVoices().contains { $0.language == identifier }
     }
 }
