@@ -237,50 +237,10 @@ public struct TTSUtterance: Identifiable, Equatable {
 /// TTS provides a common interface for Text To Speech services implementing the `TTSService` protocol.
 /// It also manages the TTSUtterance status, something that typically is not implemented by `TTSService`
 public class TTS: ObservableObject {
-    
-    @Published public private(set) var isSpeaking: Bool = false
-    @Published public private(set) var currentlySpeaking: TTSUtterance?
-    @Published public var disabled: Bool = false {
-        didSet {
-            if disabled {
-                cancelAll()
-            }
-        }
-    }
-    
     /// The play queue
     private var queue: [TTSUtterance] = []
     /// Cancellable store
     private var cancellables = Set<AnyCancellable>()
-    
-    private let queuedSubject: TTSStatusSubject = .init()
-    private let preparingSubject: TTSStatusSubject = .init()
-    private let speakingSubject: TTSStatusSubject = .init()
-    private let pausedSubject: TTSStatusSubject = .init()
-    private let cancelledSubject: TTSStatusSubject = .init()
-    private let finishedSubject: TTSStatusSubject = .init()
-    private let finishedQueueSubject: TTSMiscSubject = .init()
-    private let failedSubject: TTSFailedSubject = .init()
-    private let speakingWordSubject: TTSWordBoundarySubject = .init()
-    
-    /// Triggered when a new utterance is added to the queue
-    public var queued: TTSStatusPublisher  { return queuedSubject.eraseToAnyPublisher()}
-    /// Triggered when an utterance is being prepared for playback
-    public var preparing: TTSStatusPublisher  { return preparingSubject.eraseToAnyPublisher()}
-    /// Triggered when an utterance is being spoken
-    public var speaking: TTSStatusPublisher  { return speakingSubject.eraseToAnyPublisher()}
-    /// Triggered when an utterance is paused
-    public var paused: TTSStatusPublisher  { return pausedSubject.eraseToAnyPublisher()}
-    /// Triggered when an utterance is cancelled
-    public var cancelled: TTSStatusPublisher  { return cancelledSubject.eraseToAnyPublisher()}
-    /// Triggered when an utterance is finished
-    public var finished: TTSStatusPublisher  { return finishedSubject.eraseToAnyPublisher()}
-    /// Triggered when the queue is empty after playback
-    public var finishedQueue: TTSMiscPublisher  { return finishedQueueSubject.eraseToAnyPublisher()}
-    /// Triggered when the a failure/error occurs
-    public var failed: TTSFailedPublisher  { return failedSubject.eraseToAnyPublisher()}
-    /// Triggered when the a word is being spoken
-    public var speakingWord: TTSWordBoundaryPublisher  { return speakingWordSubject.eraseToAnyPublisher()}
     /// The currenly used service, reset occurs when queueing an item
     private var currentService:TTSService? = nil
     /// The currently selected service
@@ -295,6 +255,47 @@ public class TTS: ObservableObject {
         return selectedService
     }
     
+    private let queuedSubject: TTSStatusSubject = .init()
+    private let preparingSubject: TTSStatusSubject = .init()
+    private let speakingSubject: TTSStatusSubject = .init()
+    private let pausedSubject: TTSStatusSubject = .init()
+    private let cancelledSubject: TTSStatusSubject = .init()
+    private let finishedSubject: TTSStatusSubject = .init()
+    private let finishedQueueSubject: TTSMiscSubject = .init()
+    private let failedSubject: TTSFailedSubject = .init()
+    private let speakingWordSubject: TTSWordBoundarySubject = .init()
+    
+    /// Indicates whether or not the TTS is playing an utterance
+    @Published public private(set) var isSpeaking: Bool = false
+    /// The currently played utterance
+    @Published public private(set) var currentlySpeaking: TTSUtterance?
+    /// Indicates whether or not the TTS is disables
+    @Published public var disabled: Bool = false {
+        didSet {
+            if disabled {
+                cancelAll()
+            }
+        }
+    }
+    /// Triggered when a new utterance is added to the queue
+    public var queued: TTSStatusPublisher
+    /// Triggered when an utterance is being prepared for playback
+    public var preparing: TTSStatusPublisher
+    /// Triggered when an utterance is being spoken
+    public var speaking: TTSStatusPublisher
+    /// Triggered when an utterance is paused
+    public var paused: TTSStatusPublisher
+    /// Triggered when an utterance is cancelled
+    public var cancelled: TTSStatusPublisher
+    /// Triggered when an utterance is finished
+    public var finished: TTSStatusPublisher
+    /// Triggered when the queue is empty after playback
+    public var finishedQueue: TTSMiscPublisher
+    /// Triggered when the a failure/error occurs
+    public var failed: TTSFailedPublisher
+    /// Triggered when the a word is being spoken
+    public var speakingWord: TTSWordBoundaryPublisher
+
     /// Dequeue an utterance, ie removed it from the queue
     /// - Parameter utterance: the utterance to remove
     private func dequeue(_ utterance: TTSUtterance) {
@@ -365,7 +366,7 @@ public class TTS: ObservableObject {
         utterance.updateStatus(.speaking)
     }
     /// Used to trigger events related to utterance word boundary
-    /// - Parameter wordBoundary: <#wordBoundary description#>
+    /// - Parameter wordBoundary: word boundary from TTS service
     private func speakingWord(_ wordBoundary:TTSWordBoundary) {
         speakingWordSubject.send(wordBoundary)
         wordBoundary.utterance.wordBoundarySubject.send(wordBoundary.wordBoundary)
@@ -374,6 +375,15 @@ public class TTS: ObservableObject {
     /// Initializes a new TTS instance
     /// - Parameter services: possible services
     public init(_ services:TTSService...) {
+        self.queued = queuedSubject.eraseToAnyPublisher()
+        self.preparing = preparingSubject.eraseToAnyPublisher()
+        self.speaking = speakingSubject.eraseToAnyPublisher()
+        self.paused = pausedSubject.eraseToAnyPublisher()
+        self.cancelled = cancelledSubject.eraseToAnyPublisher()
+        self.finished = finishedSubject.eraseToAnyPublisher()
+        self.finishedQueue = finishedQueueSubject.eraseToAnyPublisher()
+        self.failed = failedSubject.eraseToAnyPublisher()
+        self.speakingWord = speakingWordSubject.eraseToAnyPublisher()
         services.forEach { s in
             self.add(service: s)
         }
@@ -382,6 +392,15 @@ public class TTS: ObservableObject {
     /// Initializes a new TTS instance
     /// - Parameter services: possible services
     public init(_ services:[TTSService]) {
+        self.queued = queuedSubject.eraseToAnyPublisher()
+        self.preparing = preparingSubject.eraseToAnyPublisher()
+        self.speaking = speakingSubject.eraseToAnyPublisher()
+        self.paused = pausedSubject.eraseToAnyPublisher()
+        self.cancelled = cancelledSubject.eraseToAnyPublisher()
+        self.finished = finishedSubject.eraseToAnyPublisher()
+        self.finishedQueue = finishedQueueSubject.eraseToAnyPublisher()
+        self.failed = failedSubject.eraseToAnyPublisher()
+        self.speakingWord = speakingWordSubject.eraseToAnyPublisher()
         services.forEach { s in
             self.add(service: s)
         }
