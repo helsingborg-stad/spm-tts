@@ -64,7 +64,15 @@ struct ContentView: View {
                 color = .white
             }
         }
-    }
+        .onRecieve(utterance.wordBoundaryPublisher) { boundary in
+            // An example on how to set up an attributed string using the word boundary:
+            // 
+            // let range = NSRange(boundary.range, in: speechString)
+            // let attributedString = NSMutableAttributedString(string: speechString)
+            // attributedString.addAttributes([.underlineStyle: NSUnderlineStyle.byWord], range: range)
+            // Text(attributedString)
+        }
+    } 
 }
 ```
 
@@ -75,3 +83,5 @@ struct ContentView: View {
 - [x] code-documentation
 - [x] write tests
 - [x] complete package documentation
+
+
