@@ -220,7 +220,9 @@ public class AppleTTS: NSObject, TTSService, AVSpeechSynthesizerDelegate, Observ
     /// - Parameter locale: the locale to compare with
     /// - Returns: true if available false if not
     public static func hasSupportFor(locale:Locale) -> Bool {
-        let identifier = locale.identifier.replacingOccurrences(of: "_", with: "-")
-        return AVSpeechSynthesisVoice.speechVoices().contains { $0.language == identifier }
+        guard let langauge = locale.languageCode else {
+            return false
+        }
+        return AVSpeechSynthesisVoice.speechVoices().contains { $0.language.starts(with: langauge) }
     }
 }

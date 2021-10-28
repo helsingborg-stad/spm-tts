@@ -77,6 +77,8 @@ final class TTSTests: XCTestCase {
     }
     func testAppleSupport() {
         XCTAssertTrue(AppleTTS.hasSupportFor(locale: Locale(identifier: "sv-SE")))
+        XCTAssertTrue(AppleTTS.hasSupportFor(locale: Locale(identifier: "sv")))
+        XCTAssertFalse(AppleTTS.hasSupportFor(locale: Locale(identifier: "")))
         XCTAssertFalse(AppleTTS.hasSupportFor(locale: Locale(identifier: "hr-HR")))
     }
 }
