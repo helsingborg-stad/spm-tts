@@ -231,13 +231,15 @@ public class AppleTTS: NSObject, TTSService, AVSpeechSynthesizerDelegate, Observ
     }
 }
 
+/// Extension for TTSGender
 extension TTSGender {
+    /// Equality check between AVSpeechSynthesisVoiceGender and TTSGender
+    /// - Parameter gender: The gender to compare with
+    /// - Returns: true if `TTSGender` is equals to `AVSpeechSynthesisVoiceGender`. Always true if `TTSGender` is equals to `.other` or `AVSpeechSynthesisVoiceGender` is equals to `.unspecified`
     func isEqual(to gender:AVSpeechSynthesisVoiceGender) -> Bool {
-        switch gender {
-        case .female: return self == .female
-        case .male: return self == .male
-        case .unspecified: return self == .other
-        @unknown default: return false
-        }
+        if self == .other || gender == .unspecified { return true }
+        if gender == .male && self == .male { return true }
+        if gender == .female && self == .female { return true }
+        return false
     }
 }

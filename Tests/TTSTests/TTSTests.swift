@@ -1,6 +1,7 @@
 import XCTest
 import AudioSwitchboard
 import Combine
+import Speech
 @testable import TTS
 
 
@@ -78,8 +79,24 @@ final class TTSTests: XCTestCase {
     func testAppleSupport() {
         let tts = AppleTTS(audioSwitchBoard: switchBoard)
         XCTAssertTrue(tts.hasSupportFor(locale: Locale(identifier: "sv-SE")))
+        XCTAssertTrue(tts.hasSupportFor(locale: Locale(identifier: "sv")))
+        XCTAssertTrue(tts.hasSupportFor(locale: Locale(identifier: "sv"), gender:.other))
         XCTAssertTrue(tts.hasSupportFor(locale: Locale(identifier: "sv"), gender:.female))
+        XCTAssertFalse(tts.hasSupportFor(locale: Locale(identifier: "sv"), gender:.male))
         XCTAssertFalse(tts.hasSupportFor(locale: Locale(identifier: "")))
         XCTAssertFalse(tts.hasSupportFor(locale: Locale(identifier: "hr-HR")))
+    }
+    func testGender() {
+        XCTAssertTrue(TTSGender.male.isEqual(to: AVSpeechSynthesisVoiceGender.male))
+        XCTAssertTrue(TTSGender.male.isEqual(to: AVSpeechSynthesisVoiceGender.unspecified))
+        XCTAssertFalse(TTSGender.male.isEqual(to: AVSpeechSynthesisVoiceGender.female))
+        
+        XCTAssertTrue(TTSGender.female.isEqual(to: AVSpeechSynthesisVoiceGender.female))
+        XCTAssertTrue(TTSGender.female.isEqual(to: AVSpeechSynthesisVoiceGender.unspecified))
+        XCTAssertFalse(TTSGender.female.isEqual(to: AVSpeechSynthesisVoiceGender.male))
+        
+        XCTAssertTrue(TTSGender.other.isEqual(to: AVSpeechSynthesisVoiceGender.male))
+        XCTAssertTrue(TTSGender.other.isEqual(to: AVSpeechSynthesisVoiceGender.female))
+        XCTAssertTrue(TTSGender.other.isEqual(to: AVSpeechSynthesisVoiceGender.unspecified))
     }
 }

@@ -28,7 +28,7 @@ public enum TTSGender: String, Codable, CaseIterable, Identifiable {
     case female
     /// male gender
     case male
-    /// other, unspecified gender
+    /// other, unspecified gender (rename to unspecified at some point, right now it's just confusing)
     case other
 }
 /// TTS error
