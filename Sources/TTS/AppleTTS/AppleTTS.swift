@@ -219,7 +219,7 @@ public class AppleTTS: NSObject, TTSService, AVSpeechSynthesizerDelegate, Observ
     /// Returns whether or not AVSpeechSynthesis supports the given locale
     /// - Parameter locale: the locale to compare with
     /// - Returns: true if available false if not
-    public static func hasSupportFor(locale:Locale) -> Bool {
+    public func hasSupportFor(locale:Locale) -> Bool {
         guard let langauge = locale.languageCode else {
             return false
         }

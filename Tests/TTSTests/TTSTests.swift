@@ -76,9 +76,11 @@ final class TTSTests: XCTestCase {
         wait(for: [expectation], timeout: 20.0)
     }
     func testAppleSupport() {
-        XCTAssertTrue(AppleTTS.hasSupportFor(locale: Locale(identifier: "sv-SE")))
-        XCTAssertTrue(AppleTTS.hasSupportFor(locale: Locale(identifier: "sv")))
-        XCTAssertFalse(AppleTTS.hasSupportFor(locale: Locale(identifier: "")))
-        XCTAssertFalse(AppleTTS.hasSupportFor(locale: Locale(identifier: "hr-HR")))
+        let tts = AppleTTS(audioSwitchBoard: switchBoard)
+        XCTAssertTrue(tts.hasSupportFor(locale: Locale(identifier: "sv-SE")))
+        XCTAssertTrue(tts.hasSupportFor(locale: Locale(identifier: "sv")))
+        XCTAssertFalse(tts.hasSupportFor(locale: Locale(identifier: "")))
+        XCTAssertFalse(tts.hasSupportFor(locale: Locale(identifier: "hr-HR")))
+        XCTAssertTrue(tts.hasSupportFor(locale: Locale(identifier: "vi")))
     }
 }
