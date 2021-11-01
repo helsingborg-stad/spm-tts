@@ -161,7 +161,7 @@ public class AppleTTS: NSObject, TTSService, AVSpeechSynthesizerDelegate, Observ
     /// - Parameter voice: used to find the best available voice
     /// - Returns: best avilable `AVSpeechSynthesisVoice`
     private func bestVoice(for voice: TTSVoice) -> AVSpeechSynthesisVoice? {
-        guard Self.hasSupportFor(locale: voice.locale) else {
+        guard hasSupportFor(locale: voice.locale) else {
             return nil
         }
         let lang = voice.locale.identifier.replacingOccurrences(of: "_", with: "-")
@@ -182,7 +182,7 @@ public class AppleTTS: NSObject, TTSService, AVSpeechSynthesizerDelegate, Observ
     /// - Parameter voice: used to find the first available voice
     /// - Returns: first avilable `AVSpeechSynthesisVoice`
     private func firstVoice(for voice: TTSVoice) -> AVSpeechSynthesisVoice? {
-        guard Self.hasSupportFor(locale: voice.locale) else {
+        guard hasSupportFor(locale: voice.locale) else {
             return nil
         }
         let lang = voice.locale.languageCode ?? voice.locale.identifier.replacingOccurrences(of: "_", with: "-")

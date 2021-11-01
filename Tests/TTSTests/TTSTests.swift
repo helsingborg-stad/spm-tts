@@ -81,6 +81,5 @@ final class TTSTests: XCTestCase {
         XCTAssertTrue(tts.hasSupportFor(locale: Locale(identifier: "sv")))
         XCTAssertFalse(tts.hasSupportFor(locale: Locale(identifier: "")))
         XCTAssertFalse(tts.hasSupportFor(locale: Locale(identifier: "hr-HR")))
-        XCTAssertTrue(tts.hasSupportFor(locale: Locale(identifier: "vi")))
     }
 }
