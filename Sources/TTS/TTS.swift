@@ -169,7 +169,7 @@ public protocol TTSService : AnyObject {
     /// Used to start playing an utterance
     func start(utterance: TTSUtterance)
     /// Used to determine whether or not the TTS supports a perticular locale
-    func hasSupportFor(locale:Locale) -> Bool
+    func hasSupportFor(locale:Locale, gender:TTSGender?) -> Bool
 }
 /// Object describing an utterance to be played.
 public struct TTSUtterance: Identifiable, Equatable {

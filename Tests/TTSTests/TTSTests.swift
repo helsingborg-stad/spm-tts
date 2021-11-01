@@ -78,7 +78,7 @@ final class TTSTests: XCTestCase {
     func testAppleSupport() {
         let tts = AppleTTS(audioSwitchBoard: switchBoard)
         XCTAssertTrue(tts.hasSupportFor(locale: Locale(identifier: "sv-SE")))
-        XCTAssertTrue(tts.hasSupportFor(locale: Locale(identifier: "sv")))
+        XCTAssertTrue(tts.hasSupportFor(locale: Locale(identifier: "sv"), gender:.female))
         XCTAssertFalse(tts.hasSupportFor(locale: Locale(identifier: "")))
         XCTAssertFalse(tts.hasSupportFor(locale: Locale(identifier: "hr-HR")))
     }

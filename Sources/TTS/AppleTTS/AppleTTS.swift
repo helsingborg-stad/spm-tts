@@ -219,10 +219,25 @@ public class AppleTTS: NSObject, TTSService, AVSpeechSynthesizerDelegate, Observ
     /// Returns whether or not AVSpeechSynthesis supports the given locale
     /// - Parameter locale: the locale to compare with
     /// - Returns: true if available false if not
-    public func hasSupportFor(locale:Locale) -> Bool {
+    public func hasSupportFor(locale:Locale, gender:TTSGender? = nil) -> Bool {
         guard let langauge = locale.languageCode else {
             return false
         }
-        return AVSpeechSynthesisVoice.speechVoices().contains { $0.language.starts(with: langauge) }
+        var arr = AVSpeechSynthesisVoice.speechVoices()
+        if let gender = gender {
+            arr = arr.filter { gender.isEqual(to: $0.gender) }
+        }
+        return arr.contains { $0.language.starts(with: langauge) }
+    }
+}
+
+extension TTSGender {
+    func isEqual(to gender:AVSpeechSynthesisVoiceGender) -> Bool {
+        switch gender {
+        case .female: return self == .female
+        case .male: return self == .male
+        case .unspecified: return self == .other
+        @unknown default: return false
+        }
     }
 }
