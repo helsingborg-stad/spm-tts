@@ -99,4 +99,34 @@ final class TTSTests: XCTestCase {
         XCTAssertTrue(TTSGender.other.isEqual(to: AVSpeechSynthesisVoiceGender.female))
         XCTAssertTrue(TTSGender.other.isEqual(to: AVSpeechSynthesisVoiceGender.unspecified))
     }
+    func testRateAndPitch() {
+        let voiceDefault = TTSVoice(id: "test", name: "test", gender: .male, rate: nil, pitch: nil, locale: Locale(identifier: "sv-SE"))
+        XCTAssert(pitch(from: voiceDefault) == AVSpeechUtteranceDefaultSpeechPitch)
+        XCTAssert(rate(from: voiceDefault) == AVSpeechUtteranceDefaultSpeechRate)
+        
+        let voiceWithinRange = TTSVoice(id: "test", name: "test", gender: .male, rate: 0.6, pitch: 1.2, locale: Locale(identifier: "sv-SE"))
+        XCTAssert(rate(from: voiceWithinRange) == AVSpeechUtteranceDefaultSpeechRate * 0.6)
+        XCTAssert(pitch(from: voiceWithinRange) == AVSpeechUtteranceDefaultSpeechPitch * 1.2)
+        
+        let voiceOutOfLowerRange = TTSVoice(id: "test", name: "test", gender: .male, rate: 0, pitch: 0, locale: Locale(identifier: "sv-SE"))
+        XCTAssert(rate(from: voiceOutOfLowerRange) == AVSpeechUtteranceMinimumSpeechRate)
+        XCTAssert(pitch(from: voiceOutOfLowerRange) == AVSpeechUtteranceMinimumSpeechPitch)
+        
+        let voiceOutOfUpperRange = TTSVoice(id: "test", name: "test", gender: .male, rate: 3, pitch: 3, locale: Locale(identifier: "sv-SE"))
+        XCTAssert(rate(from: voiceOutOfUpperRange) == AVSpeechUtteranceMaximumSpeechRate)
+        XCTAssert(pitch(from: voiceOutOfUpperRange) == AVSpeechUtteranceMaximumSpeechPitch)
+        debugPrint(AVSpeechUtteranceMinimumSpeechRate,AVSpeechUtteranceDefaultSpeechRate,AVSpeechUtteranceMaximumSpeechRate)
+        let expectation = XCTestExpectation(description: "testFinished")
+        let u = TTSUtterance("Såhär låter dina inställningar", gender: .other, locale: Locale(identifier: "sv-SE"), rate: 1, pitch: 1, tag: "test")
+        var statuses:[TTSUtteranceStatus] = [.none,.queued,.preparing,.speaking,.finished]
+        u.statusPublisher.sink { status in
+            statuses.removeAll { $0 == status }
+            if status == .finished {
+                XCTAssert(statuses.count == 0)
+                expectation.fulfill()
+            }
+        }.store(in: &cancellables)
+        tts.play(u)
+        wait(for: [expectation], timeout: 20.0)
+    }
 }

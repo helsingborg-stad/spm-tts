@@ -46,9 +46,9 @@ public struct TTSVoice {
     public var name: String = "default"
     /// The gender of the voice
     public var gender: TTSGender = .other
-    /// Adjust the pitch of the voice
+    /// Adjust the pitch of the voice, a value between 0 and 2 where default is 1
     public var pitch: Double? = nil
-    /// Adjust the pitch of the utterance
+    /// Adjust the rate of the voice, a value between 0 and 2 where default is 1
     public var rate: Double? = nil
     /// The locale to be used to decide which language to use for the utterance.
     public var locale: Locale

@@ -4,6 +4,33 @@ import Combine
 import FFTPublisher
 import AudioSwitchboard
 
+/// Constant for AVSpeechUtterance minimum pitch
+let AVSpeechUtteranceMinimumSpeechPitch:CFloat = 0.5
+/// Constant for AVSpeechUtterance maximum pitch
+let AVSpeechUtteranceMaximumSpeechPitch:CFloat = 2
+/// Constant for AVSpeechUtterance default pitch
+let AVSpeechUtteranceDefaultSpeechPitch:CFloat = 1
+
+/// Calculated pitch from voice input
+/// - Parameter voice: voice to extract pitch from
+/// - Returns: AVSpeechUtterance adjusted pitch
+func pitch(from voice:TTSVoice) -> Float {
+    guard let r = voice.pitch else {
+        return AVSpeechUtteranceDefaultSpeechPitch
+    }
+    let rate = Float(r) * AVSpeechUtteranceDefaultSpeechPitch
+    return min(max(rate,AVSpeechUtteranceMinimumSpeechPitch),AVSpeechUtteranceMaximumSpeechPitch)
+}
+/// Calculated rate from voice input
+/// - Parameter voice: voice to extract rate from
+/// - Returns: AVSpeechUtterance adjusted rate
+func rate(from voice:TTSVoice) -> Float {
+    guard let r = voice.rate else {
+        return AVSpeechUtteranceDefaultSpeechRate
+    }
+    let rate = Float(r) * AVSpeechUtteranceDefaultSpeechRate
+    return min(max(rate,AVSpeechUtteranceMinimumSpeechRate),AVSpeechUtteranceMaximumSpeechRate)
+}
 /// AppleTTS errors
 public enum AppleTTSError : Error {
     /// If service unavailable
@@ -142,14 +169,8 @@ public class AppleTTS: NSObject, TTSService, AVSpeechSynthesizerDelegate, Observ
         let u = AVSpeechUtterance(string: utterance.speechString)
         u.voice = v
         u.volume = 1
-        if let r = utterance.voice.rate {
-            
-            print(r,Float(r),u.rate)
-            u.rate = Float(r)
-        }
-        if let p = utterance.voice.pitch {
-            u.pitchMultiplier = Float(p)
-        }
+        u.rate = rate(from: utterance.voice)
+        u.pitchMultiplier = pitch(from: utterance.voice)
         db[u] = utterance
         synthesizer.write(u) { (buff) in
             if self.db[u] == utterance {
