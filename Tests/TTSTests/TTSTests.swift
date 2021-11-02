@@ -26,17 +26,17 @@ final class TTSTests: XCTestCase {
     func testFailure() {
         let expectation = XCTestExpectation(description: "testFailure")
         let u = TTSUtterance.init("Hej", voice: TTSVoice.init(locale: Locale(identifier: "hr-HR")))
-        var statuses:[TTSUtteranceStatus] = [.none,.queued,.preparing,.failed]
+        var statuses:[TTSUtteranceStatus] = [.none,.queued,.failed]
         u.failurePublisher.sink { error in
             expectation.fulfill()
             XCTAssert(statuses.count == 0)
         }.store(in: &cancellables)
-        
         u.statusPublisher.sink { status in
             statuses.removeAll { $0 == status }
+            debugPrint(status)
         }.store(in: &cancellables)
         tts.play(u)
-        wait(for: [expectation], timeout: 20.0)
+        wait(for: [expectation], timeout: 10)
     }
     func testCancelled() {
         let expectation = XCTestExpectation(description: "testCancelled")

@@ -21,6 +21,7 @@ public typealias TTSFailedSubject = PassthroughSubject<TTSFailure, Never>
 
 /// Enum describing voice genders
 public enum TTSGender: String, Codable, CaseIterable, Identifiable {
+    /// The id of the gender, returns the string rawValue
     public var id: String {
         return rawValue
     }
@@ -246,16 +247,7 @@ public class TTS: ObservableObject {
     /// The currenly used service, reset occurs when queueing an item
     private var currentService:TTSService? = nil
     /// The currently selected service
-    private var selectedService:TTSService?
-    /// Holds a list of services added to TTS.
     private var services = [TTSService]()
-    /// Returns the "best" service, or really just the first available service.
-    private var bestAvailableService:TTSService? {
-        guard let service = selectedService, service.available == true else {
-            return services.first(where: { $0.available })
-        }
-        return selectedService
-    }
     
     private let queuedSubject: TTSStatusSubject = .init()
     private let preparingSubject: TTSStatusSubject = .init()
@@ -298,6 +290,13 @@ public class TTS: ObservableObject {
     /// Triggered when the a word is being spoken
     public var speakingWord: TTSWordBoundaryPublisher
 
+    /// Determines the best available service for the given voice
+    /// - Parameter voice: used to check locale and gender
+    /// - Returns: the first service in the list of services that are available and supports the given properties
+    private func bestAvailableService(for voice:TTSVoice) -> TTSService? {
+        services.first(where: { $0.hasSupportFor(locale: voice.locale, gender: voice.gender) })
+    }
+    
     /// Dequeue an utterance, ie removed it from the queue
     /// - Parameter utterance: the utterance to remove
     private func dequeue(_ utterance: TTSUtterance) {
@@ -313,8 +312,7 @@ public class TTS: ObservableObject {
             finishedQueueSubject.send()
             return
         }
-        guard let service = bestAvailableService else {
-            notSpeaking()
+        guard let service = bestAvailableService(for: utterance.voice) else {
             failed(TTSFailure.init(utterance: utterance, error: TTSError.missingTTSService))
             return
         }
@@ -389,7 +387,6 @@ public class TTS: ObservableObject {
         services.forEach { s in
             self.add(service: s)
         }
-        self.selectedService = services.first(where: { $0.available })
     }
     /// Initializes a new TTS instance
     /// - Parameter services: possible services
@@ -406,15 +403,18 @@ public class TTS: ObservableObject {
         services.forEach { s in
             self.add(service: s)
         }
-        self.selectedService = services.first(where: { $0.available })
     }
     
     /// Add a service to the list of possible services to use
     /// - Parameters:
     ///   - service: the service to add
-    ///   - select: select when added
-    public func add(service:TTSService, select:Bool = false) {
-        self.services.append(service)
+    ///   - prioritized: determines if the service is added to the top of the list of services
+    public func add(service:TTSService, prioritized:Bool = false) {
+        if prioritized {
+            self.services.insert(service, at: 0)
+        } else {
+            self.services.append(service)
+        }
         service.cancelledPublisher.receive(on: DispatchQueue.main).sink { [weak self] u in
             self?.cancelled(u)
         }.store(in: &cancellables)
@@ -430,56 +430,6 @@ public class TTS: ObservableObject {
         service.failurePublisher.receive(on: DispatchQueue.main).sink { [weak self] f in
             self?.failed(f)
         }.store(in: &cancellables)
-        if select {
-            self.select(service: service)
-        }
-    }
-    /// Remove a service from the list of possible services
-    /// - Parameter service: the service to remove
-    public func remove(service:TTSService) {
-        if let index = services.firstIndex(where: { $0.id == service.id }) {
-            self.services.remove(at: index)
-            if selectedService?.id == service.id {
-                self.selectedService = services.first
-            }
-        }
-    }
-    /// Remove a service from the list of possible services
-    /// - Parameter identifier: remove using identifier
-    public func remove(service identifier:TTSServiceIdentifier) {
-        if let index = services.firstIndex(where: { $0.id == identifier }) {
-            self.services.remove(at: index)
-            if selectedService?.id == identifier {
-                self.selectedService = services.first
-            }
-        }
-    }
-    /// Selects a service
-    /// - Parameter service: the service to select
-    public func select(service:TTSService) {
-        if let s = services.first(where: { $0.id == service.id }) {
-            self.selectedService = s
-        } else {
-            self.add(service: service)
-            if service.available {
-                self.selectedService = service
-            } else {
-                debugPrint("trying to add an unavailable TTS as selected")
-            }
-        }
-    }
-    /// Seleect service by the service id
-    /// - Parameter identifier: the id of the service
-    public func select(service identifier:TTSServiceIdentifier) {
-        if let s = services.first(where: { $0.id == identifier }) {
-            if s.available {
-                self.selectedService = s
-            } else {
-                debugPrint("trying to add an unavailable TTS as selected")
-            }
-        } else {
-            debugPrint("no such service")
-        }
     }
     /// Queue a list of utterances for playback
     /// - Parameter utterances: utterances to queue
