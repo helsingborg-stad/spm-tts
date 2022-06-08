@@ -171,6 +171,12 @@ public protocol TTSService : AnyObject {
     func start(utterance: TTSUtterance)
     /// Used to determine whether or not the TTS supports a perticular locale
     func hasSupportFor(locale:Locale, gender:TTSGender?) -> Bool
+    /// Currently available service locales publisher
+    /// The locales must be formatted as `language_REGION` or just `language` (don't use hyphens)
+    var availableLocalesPublisher: AnyPublisher<Set<Locale>?,Never> { get }
+    /// Currently available service locales
+    /// The locales must be formatted as `language_REGION` or just `language` (don't use hyphens)
+    var availableLocales:Set<Locale>? { get }
 }
 /// Object describing an utterance to be played.
 public struct TTSUtterance: Identifiable, Equatable {
@@ -191,6 +197,8 @@ public struct TTSUtterance: Identifiable, Equatable {
     public let tag:String?
     /// The string to be uttered
     public let speechString: String
+    /// Coressponding utterance ssml (if any).
+    public let ssml: String?
     /// The voice properties being used bu the TTSService to determine what voice to use for the utterance
     public let voice: TTSVoice
     /// Publishes utterance status events
@@ -202,10 +210,12 @@ public struct TTSUtterance: Identifiable, Equatable {
     /// Initializes a new TTSUtterance
     /// - Parameters:
     ///   - speechString: The string to be uttered
+    ///   - ssml: SSML utterance (used if supported by the TTSService)
     ///   - voice: The voice properties being used bu the TTSService to determine what voice to use for the utterance
     ///   - tag: Utterance tag, can be used to identify an utterance.
-    public init(_ speechString: String, voice: TTSVoice,tag:String? = nil) {
+    public init(_ speechString: String, ssml:String? = nil, voice: TTSVoice, tag:String? = nil) {
         self.speechString = speechString
+        self.ssml = ssml
         self.voice = voice
         self.tag = tag
         self.statusPublisher = statusSubject.eraseToAnyPublisher()
@@ -215,13 +225,15 @@ public struct TTSUtterance: Identifiable, Equatable {
     /// Initializes a new TTSUtterance
     /// - Parameters:
     ///   - speechString: The string to be uttered
+    ///   - ssml: SSML utterance (used if supported by the TTSService)
     ///   - gender: The gender of the voice
     ///   - locale: The locale to be used to decide which language to use for the utterance.
     ///   - rate: Adjust the pitch of the voice
     ///   - pitch: Adjust the pitch of the utterance
     ///   - tag: Utterance tag, can be used to identify an utterance.
-    public init(_ speechString: String, gender: TTSGender = .female, locale: Locale = .current, rate:Double? = nil, pitch:Double? = nil, tag:String? = nil) {
+    public init(_ speechString: String, ssml:String? = nil, gender: TTSGender = .female, locale: Locale = .current, rate:Double? = nil, pitch:Double? = nil, tag:String? = nil) {
         self.speechString = speechString
+        self.ssml = ssml
         self.tag = tag
         self.voice = TTSVoice(gender: gender, rate: rate, pitch: pitch, locale: locale)
         self.statusPublisher = statusSubject.eraseToAnyPublisher()
@@ -259,6 +271,14 @@ public class TTS: ObservableObject {
     private let failedSubject: TTSFailedSubject = .init()
     private let speakingWordSubject: TTSWordBoundarySubject = .init()
     
+    /// Currently available locales publisher subject
+    private var availableLocalesSubject = CurrentValueSubject<Set<Locale>?,Never>(nil)
+    /// Currently available locales publisher
+    public var availableLocalesPublisher: AnyPublisher<Set<Locale>?,Never> {
+        return availableLocalesSubject.eraseToAnyPublisher()
+    }
+    /// Currently available locales
+    public private(set) var availableLocales:Set<Locale>? = nil
     /// Indicates whether or not the TTS is playing an utterance
     @Published public private(set) var isSpeaking: Bool = false
     /// The currently played utterance
@@ -415,6 +435,9 @@ public class TTS: ObservableObject {
         } else {
             self.services.append(service)
         }
+        if service.availableLocales != nil {
+            updateAvailableLocales(service.availableLocales)
+        }
         service.cancelledPublisher.receive(on: DispatchQueue.main).sink { [weak self] u in
             self?.cancelled(u)
         }.store(in: &cancellables)
@@ -429,6 +452,9 @@ public class TTS: ObservableObject {
         }.store(in: &cancellables)
         service.failurePublisher.receive(on: DispatchQueue.main).sink { [weak self] f in
             self?.failed(f)
+        }.store(in: &cancellables)
+        service.availableLocalesPublisher.receive(on: DispatchQueue.main).sink { [weak self] locales in
+            self?.updateAvailableLocales(locales)
         }.store(in: &cancellables)
     }
     /// Queue a list of utterances for playback
@@ -500,5 +526,16 @@ public class TTS: ObservableObject {
         currentService?.continue()
         speakingSubject.send(u)
         u.updateStatus(.speaking)
+    }
+    /// Updates the currently available locales using a set ot locales
+    private func updateAvailableLocales(_ locales:Set<Locale>?) {
+        if let locales = locales {
+            if availableLocales == nil {
+                availableLocales = .init(locales)
+            } else {
+                availableLocales = availableLocales?.union(locales)
+            }
+        }
+        availableLocalesSubject.send(availableLocales)
     }
 }

@@ -4,6 +4,11 @@ import Combine
 import FFTPublisher
 import AudioSwitchboard
 
+func createLocaleSet() -> Set<Locale> {
+    return Set(AVSpeechSynthesisVoice.speechVoices().map { Locale(identifier: $0.language.replacingOccurrences(of: "-", with: "_"))})
+}
+
+
 /// Constant for AVSpeechUtterance minimum pitch
 let AVSpeechUtteranceMinimumSpeechPitch:CFloat = 0.5
 /// Constant for AVSpeechUtterance maximum pitch
@@ -84,6 +89,13 @@ public class AppleTTS: NSObject, TTSService, AVSpeechSynthesizerDelegate, Observ
             audioPlayer.fft = fft
         }
     }
+    /// Currently available locales publisher
+    public var availableLocalesPublisher: AnyPublisher<Set<Locale>?, Never> {
+        return $availableLocales.eraseToAnyPublisher()
+    }
+    /// Currently available locales
+    @Published public private(set) var availableLocales: Set<Locale>? = createLocaleSet()
+
     /// Initializes a new AppleTTS instance
     /// - Parameters:
     ///   - audioSwitchBoard: Ssed to manage audio usage

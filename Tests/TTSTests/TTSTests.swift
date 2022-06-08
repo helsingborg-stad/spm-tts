@@ -129,4 +129,18 @@ final class TTSTests: XCTestCase {
         tts.play(u)
         wait(for: [expectation], timeout: 20.0)
     }
+    func testLocaleSupport() {
+        let expectation = XCTestExpectation(description: "testLocaleSupport")
+        let tts = TTS(AppleTTS(audioSwitchBoard: switchBoard))
+        tts.availableLocalesPublisher.sink { locales in
+            guard let locales = locales else {
+                print("nothing?")
+                return
+            }
+            print(locales)
+            XCTAssert(locales.contains(Locale(identifier: "sv_SE")))
+            expectation.fulfill()
+        }.store(in: &cancellables)
+        wait(for: [expectation], timeout: 2)
+    }
 }
