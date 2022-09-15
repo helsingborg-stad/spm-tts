@@ -1,5 +1,9 @@
 # TTS
 
+## DEPRECATED
+Package will not recieve any updates, please use the TTS library in https://github.com/helsingborg-stad/spm-daisy instead.
+
+## About
 TTS provides a common interface for Text To Speech services implementing the `TTSService` protocol.
 
 ## Usage 
